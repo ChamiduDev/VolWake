@@ -1,8 +1,6 @@
 package com.example.volume_wake
 
 import android.app.Activity
-import android.app.KeyguardManager
-import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -10,38 +8,44 @@ import android.os.Looper
 import android.view.WindowManager
 
 /**
- * Transparent dummy activity used to reliably wake up the screen and show
- * over the lock screen on Android 8.0/8.1+ (especially Vivo Funtouch OS).
- * It turns on the display, unlocks/shows over keyguard, and immediately finishes.
+ * Transparent dummy activity used across Android versions (Android 8.0+) and
+ * diverse Android OEM devices to reliably illuminate the display over the keyguard.
+ * Turns on screen seamlessly with zero transition animation and dismisses cleanly.
  */
 class WakeActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        disableTransitions()
 
-        // Android 8.0 & 8.1+ (Oreo, which Vivo Y93 runs)
+        // Modern Android 8.1+ (API 27+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-            km?.requestDismissKeyguard(this, null)
         }
 
-        // WindowManager flags for maximum OEM compatibility (Funtouch OS 4.5 / Vivo Y93)
+        // WindowManager flags for OEM compatibility across all versions
         @Suppress("DEPRECATION")
         window.addFlags(
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
 
-        // Automatically dismiss this dummy activity after screen wakes
+        // Dismiss this dummy activity quickly so the phone stays on the lock screen / active app
         Handler(Looper.getMainLooper()).postDelayed({
             if (!isFinishing && !isDestroyed) {
                 finish()
+                disableTransitions()
             }
-        }, 300)
+        }, 250)
+    }
+
+    private fun disableTransitions() {
+        try {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        } catch (_: Exception) {}
     }
 }

@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -26,7 +27,7 @@ class VolumeWakeService : AccessibilityService() {
 
     companion object {
         private const val TAG = "VolumeWakeService"
-        private const val CHANNEL_ID = "volume_wake_channel"
+        private const val CHANNEL_ID = "volwake_channel"
         private const val NOTIFICATION_ID = 1001
     }
 
@@ -36,8 +37,6 @@ class VolumeWakeService : AccessibilityService() {
     private var isPlayingSilence = false
     private var isReceiverRegistered = false
 
-    // Screen state listener: when screen is turned off, we activate the silent MediaSession
-    // so hardware volume buttons are routed to our service instead of being dropped by the OS.
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -60,7 +59,7 @@ class VolumeWakeService : AccessibilityService() {
         setupMediaSession()
         registerScreenReceiver()
 
-        // If screen is currently off when connected
+        // If screen is currently off when service connects
         if (!powerManager.isInteractive) {
             startScreenOffVolumeListener()
         }
@@ -82,7 +81,7 @@ class VolumeWakeService : AccessibilityService() {
         if (mediaSession != null) return
 
         try {
-            mediaSession = MediaSession(this, "VolumeWakeMediaSession").apply {
+            mediaSession = MediaSession(this, "VolWakeMediaSession").apply {
                 // Set remote volume provider to intercept volume up/down
                 val volumeProvider = object : VolumeProvider(VOLUME_CONTROL_RELATIVE, 100, 50) {
                     override fun onAdjustVolume(direction: Int) {
@@ -128,8 +127,8 @@ class VolumeWakeService : AccessibilityService() {
 
     /**
      * Loops a silent PCM buffer in hardware using static mode.
-     * This forces the Android audio subsystem (especially on Vivo Funtouch OS)
-     * to recognize the app as playing media and forward volume key events while the screen is off.
+     * This forces the Android audio subsystem to recognize the app as playing media
+     * and forward hardware volume key events while the screen is dark.
      */
     private fun startSilentAudio() {
         if (isPlayingSilence) return
@@ -163,7 +162,6 @@ class VolumeWakeService : AccessibilityService() {
 
             val silentBuffer = ByteArray(bufferSize) // PCM zeroes
             audioTrack?.write(silentBuffer, 0, silentBuffer.size)
-            // Hardware loop points (zero CPU overhead)
             audioTrack?.setLoopPoints(0, bufferSize / 2, -1)
             audioTrack?.play()
             isPlayingSilence = true
@@ -215,8 +213,8 @@ class VolumeWakeService : AccessibilityService() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Volume Wake is active")
-            .setContentText("Press Volume Up / Down to wake the screen")
+            .setContentTitle("VolWake is active")
+            .setContentText("Press Volume Up / Down to wake screen")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -224,17 +222,26 @@ class VolumeWakeService : AccessibilityService() {
             .setContentIntent(pendingIntent)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val serviceTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            }
+            startForeground(NOTIFICATION_ID, notification, serviceTypes)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Volume Wake Service",
+                "VolWake Background Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps Volume Wake running in the background"
+                description = "Keeps VolWake active to intercept volume keys when screen is off"
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_SECRET
             }

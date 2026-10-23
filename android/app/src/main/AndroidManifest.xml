@@ -5,10 +5,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:label="Volume Wake"
+        android:label="VolWake"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -32,7 +33,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Transparent WakeActivity to wake up and display over lockscreen (especially Android 8.1 / Vivo Y93) -->
+        <!-- Transparent WakeActivity to wake up and display over lockscreen across various Android versions -->
         <activity
             android:name=".WakeActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
@@ -69,6 +70,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>
