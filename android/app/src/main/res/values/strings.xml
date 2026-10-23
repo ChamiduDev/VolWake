@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">
+        Volume Wake uses the Accessibility Service to listen for Volume key presses while
+        the screen is off, and wakes the display so you can use your phone without
+        a working Power button.
+    </string>
+</resources>
